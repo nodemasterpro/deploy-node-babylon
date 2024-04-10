@@ -1,0 +1,40 @@
+---
+- name: Create and Link Babylon Wallet
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure /root/babylon directory exists
+      ansible.builtin.file:
+        path: /root/babylon
+        state: directory
+
+    - name: Create Babylon wallet
+      ansible.builtin.command:
+        babylond keys add wallet --output json --keyring-backend test 
+      register: wallet_output
+      changed_when: false
+
+    - name: Save wallet output JSON to file
+      ansible.builtin.copy:
+        content: "{{ wallet_output.stdout }}"
+        dest: /root/babylon/wallet.json
+      when: wallet_output.stdout != ""
+
+    - name: Get Babylon wallet address from JSON
+      ansible.builtin.shell: jq -r '.address' /root/babylon/wallet.json
+      register: wallet_address
+      changed_when: false
+
+    - name: Display Babylon wallet address
+      debug:
+        msg: "The Babylon wallet address is: {{ wallet_address.stdout }}"
+
+    - name: Link new wallet to the BLS folder using the wallet address
+      ansible.builtin.shell: babylond create-bls-key {{ wallet_address.stdout }}
+      register: bls_key_output
+      changed_when: true
+
+    - name: Restart babylond service
+      ansible.builtin.systemd:
+        name: babylon-node.service
+        state: restarted

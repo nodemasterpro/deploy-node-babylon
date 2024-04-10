@@ -1,0 +1,61 @@
+---
+- name: Setup and Register Babylon Validator Node
+  hosts: all
+  become: true
+  vars_prompt:
+    - name: moniker
+      prompt: "Enter the moniker for the validator"
+      private: no
+
+    - name: details
+      prompt: "Enter details for the validator"
+      private: no
+
+    - name: website
+      prompt: "Enter the website for the validator"
+      private: no
+
+  tasks:
+    - name: Retrieve PUBLIC_KEY for validator
+      ansible.builtin.shell: babylond tendermint show-validator
+      register: public_key
+      changed_when: false
+
+    - name: Create validator.json configuration file
+      ansible.builtin.copy:
+        dest: "/root/.babylond/config/validator.json"
+        content: |
+          {
+            "pubkey": {{ public_key.stdout }},
+            "amount": "1000000ubbn",
+            "moniker": "{{ moniker }}",
+            "website": "{{ website }}",
+            "details": "{{ details }}",
+            "commission-rate": "0.10",
+            "commission-max-rate": "0.20",
+            "commission-max-change-rate": "0.01",
+            "min-self-delegation": "1"
+          }
+        mode: 0644
+
+    - name: Register the validator node
+      ansible.builtin.shell: |
+        babylond tx checkpointing create-validator /root/.babylond/config/validator.json \
+        --chain-id="bbn-test-3" \
+        --gas="auto" \
+        --gas-adjustment="1.5" \
+        --gas-prices="0.025ubbn" \
+        --from=wallet \
+        --keyring-backend test 
+      register: validator_registration
+      failed_when: "'failed' in validator_registration.stderr"
+      changed_when: true
+
+    - name: Get the validator address
+      ansible.builtin.shell: babylond keys show "{{ moniker }}" -a --bech val
+      register: validator_address
+      changed_when: false
+
+    - name: Display the validator address
+      debug:
+        msg: "The validator address is: {{ validator_address.stdout }}"

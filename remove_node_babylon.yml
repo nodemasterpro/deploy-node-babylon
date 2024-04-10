@@ -1,0 +1,42 @@
+---
+- name: Uninstall Babylon Node and Dependencies
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Stop Babylon Service
+      ansible.builtin.systemd:
+        name: babylon-node.service
+        state: stopped
+      ignore_errors: yes
+
+    - name: Disable Babylon Service
+      ansible.builtin.systemd:
+        name: babylon-node.service
+        enabled: no
+      ignore_errors: yes
+
+    - name: Remove Babylon Service File
+      ansible.builtin.file:
+        path: /etc/systemd/system/babylon-node.service
+        state: absent
+
+    - name: Uninstall Cosmovisor and Babylon binaries
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /usr/local/bin/babylond
+        - /usr/local/bin/cosmovisor
+        - /root/.babylond
+        - /root/go/bin/cosmovisor
+
+    - name: Remove Go Programming Language
+      ansible.builtin.file:
+        path: /usr/local/go
+        state: absent
+
+
+    - name: Reload systemd Daemon
+      ansible.builtin.systemd:
+        daemon_reload: true

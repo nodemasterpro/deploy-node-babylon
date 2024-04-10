@@ -1,0 +1,136 @@
+---
+- name: Install Babylon Node and Dependencies
+  hosts: all
+  become: true
+  vars_prompt:
+    - name: node_name
+      prompt: "Enter the node name"
+      private: no
+  vars_files:
+  - vars/seeds.yml
+    
+  tasks:
+    - name: Update and Upgrade APT Packages
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install Go Programming Language and Essential Components
+      ansible.builtin.apt:
+        name:
+          - git
+          - build-essential
+          - curl
+          - jq
+        state: present
+
+    - name: Download and Extract Go Binary
+      ansible.builtin.unarchive:
+        src: "https://golang.org/dl/go1.21.4.linux-amd64.tar.gz"
+        dest: "/usr/local"
+        remote_src: yes
+        creates: "/usr/local/go/bin/go"
+
+    - name: Set Go PATH Environment Variable
+      ansible.builtin.lineinfile:
+        path: "{{ item.path }}"
+        line: "export PATH=$PATH:/usr/local/go/bin"
+      loop:
+        - { path: "/etc/profile" }
+        - { path: "/root/.bashrc" }
+
+    - name: Clone Babylon Repository and Build
+      block:
+        - ansible.builtin.git:
+            repo: "https://github.com/babylonchain/babylon.git"
+            dest: "~/babylon"
+            version: "v0.8.5"
+            force: yes
+
+        - ansible.builtin.command:
+            chdir: "~/babylon"
+            cmd: "make build"
+
+        - name: Copy babylond to bin directory
+          ansible.builtin.copy:
+            src: ~/babylon/build/babylond
+            dest: /usr/local/bin/babylond
+            mode: '0755'
+            remote_src: yes
+            
+    - name: Remove existing genesis.json file
+      ansible.builtin.file:
+        path: "/root/.babylond/config/genesis.json"
+        state: absent
+        
+    - name: Initialize node with given name
+      ansible.builtin.shell: |
+        mkdir -p ~/.babylond
+        babylond init {{ node_name }} --chain-id bbn-test-3 --overwrite
+
+    - name: Download and configure the genesis file
+      ansible.builtin.shell: |
+        wget https://github.com/babylonchain/networks/raw/main/bbn-test-3/genesis.tar.bz2
+        tar -xjf genesis.tar.bz2 && rm genesis.tar.bz2
+        mv genesis.json ~/.babylond/config/genesis.json
+
+    - name: Set seeds in config.toml
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.babylond/config/config.toml"
+        regexp: '^\s*seeds =.*'
+        line: 'seeds = "{{ seeds_list }}"'
+      
+
+    - name: Set persistent_peers in config.toml
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.babylond/config/config.toml"
+        regexp: '^\\s*persistent_peers =.*'
+        line: 'persistent_peers = "{{ peers_list }}"'
+      vars:
+        peers_list: 'de820378224463e699fc51e93c6b16a8c6cb2cf4@213.199.49.104:26656,8e1381ae6bc0551d152a5259b935cdd5cd6dcca6@38.242.200.164:26656,5e02bb2c9a644afae6109bf2c264d356fad27618@15.165.166.210:26656,9041f8c106c94b4703a8fa09bd41e857b104f60b@84.247.163.55:20656,4b5ed6e8caed5bbaa7669d113f92efbb6641f83c@84.247.139.5:26656'
+
+    - name: Configure config.toml file
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.babylond/config/config.toml"
+        regexp: '^timeout_commit\s*=.*'
+        line: 'timeout_commit = "30s"'
+
+    - name: Configure app folder settings
+      become: yes
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.babylond/config/app.toml"
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - regexp: '^\s*network\s*=.*'
+          line: 'network = "signet"'
+        - regexp: '^\s*minimum-gas-prices\s*=.*'
+          line: 'minimum-gas-prices = "0.00001ubbn"'
+
+    - name: Download and extract Babylon snapshot for faster sync
+      ansible.builtin.shell: |
+        curl -o - -L https://snapshots.polkachu.com/testnet-snapshots/babylon/babylon_146490.tar.lz4 | lz4 -c -d - | tar -x -C $HOME/.babylond
+      args:
+        executable: /bin/bash
+    
+    - name: Install Cosmovisor
+      ansible.builtin.shell: |
+        go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@latest
+        mkdir -p ~/.babylond/cosmovisor
+        mkdir -p ~/.babylond/cosmovisor/genesis
+        mkdir -p ~/.babylond/cosmovisor/genesis/bin
+        mkdir -p ~/.babylond/cosmovisor/upgrades
+        cp -f /usr/local/bin/babylond ~/.babylond/cosmovisor/genesis/bin/babylond
+        cp -f /root/go/bin/cosmovisor /usr/local/bin/
+
+    - name: Setup Babylon Node Systemd Service
+      template:
+        src: babylon-node.service.j2
+        dest: /etc/systemd/system/babylon-node.service
+
+    - name: Enable and Start Babylon Service
+      systemd:
+        name: babylon-node.service
+        enabled: yes
+        state: started
+        daemon_reload: yes            
