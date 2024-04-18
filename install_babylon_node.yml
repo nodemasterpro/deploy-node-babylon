@@ -47,7 +47,7 @@
             version: "v0.8.5"
             force: yes
 
-        - ansible.builtin.command:
+        - ansible.builtin.shell:
             chdir: "~/babylon"
             cmd: "make build"
             environment:
