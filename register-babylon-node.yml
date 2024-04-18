@@ -52,7 +52,7 @@
       changed_when: true
 
     - name: Get the validator address
-      ansible.builtin.shell: babylond keys show "{{ moniker }}" -a --bech val
+      ansible.builtin.shell: babylond keys show wallet -a --bech val --keyring-backend test
       register: validator_address
       changed_when: false
 
