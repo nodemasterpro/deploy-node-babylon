@@ -50,6 +50,10 @@
         - ansible.builtin.command:
             chdir: "~/babylon"
             cmd: "make build"
+            environment:
+              PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+              GOPATH: "{{ ansible_env.HOME }}/go"
+              GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
 
         - name: Copy babylond to bin directory
           ansible.builtin.copy:
