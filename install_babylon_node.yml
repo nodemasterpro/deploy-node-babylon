@@ -31,13 +31,13 @@
         remote_src: yes
         creates: "/usr/local/go/bin/go"
 
-    - name: Set Go PATH Environment Variable
-      ansible.builtin.lineinfile:
-        path: "{{ item.path }}"
-        line: "export PATH=$PATH:/usr/local/go/bin"
-      loop:
-        - { path: "/etc/profile" }
-        - { path: "/root/.bashrc" }
+    
+    - name: Update .bash_profile with Go paths
+      lineinfile:
+          path: "/root/.bash_profile"
+          line: 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin'
+          create: yes
+    
 
     - name: Clone Babylon Repository and Build
       block:
@@ -47,14 +47,12 @@
             version: "v0.8.5"
             force: yes
 
-        - ansible.builtin.env:
+        - name: build babylon project
+          ansible.builtin.shell: "make {{ ansible_env.HOME }}/babylon/build"
+          environment:
             PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
-            GOPATH: "{{ ansible_env.HOME }}/go" 
+            GOPATH: "{{ ansible_env.HOME }}/go"
             GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
-
-        - ansible.builtin.command:
-            chdir: "~/babylon"
-            cmd: make build
 
         - name: Copy babylond to bin directory
           ansible.builtin.copy:
@@ -112,11 +110,16 @@
         - regexp: '^\s*minimum-gas-prices\s*=.*'
           line: 'minimum-gas-prices = "0.00001ubbn"'
 
-    - name: Download and extract Babylon snapshot for faster sync
+
+    - name: Fetch and extract the latest Babylon snapshot
       ansible.builtin.shell: |
-        curl -o - -L https://snapshots.polkachu.com/testnet-snapshots/babylon/babylon_194231.tar.lz4 | lz4 -c -d - | tar -x -C $HOME/.babylond
+        # Fetch the snapshot page and parse the latest snapshot URL
+        SNAPSHOT_URL=$(curl -s https://www.polkachu.com/testnets/babylon/snapshots | grep -oP 'https://snapshots.polkachu.com/testnet-snapshots/babylon/babylon_[0-9]+\.tar\.lz4' | head -1)
+        # Download and extract the snapshot using the parsed URL
+        curl -o - -L $SNAPSHOT_URL | lz4 -c -d - | tar -x -C $HOME/.babylond
       args:
         executable: /bin/bash
+    
     
     - name: Install Cosmovisor
       ansible.builtin.shell: |
