@@ -22,6 +22,7 @@
           - build-essential
           - curl
           - jq
+          - lz4
         state: present
 
     - name: Download and Extract Go Binary
@@ -51,7 +52,7 @@
           ansible.builtin.shell:
             cmd: "make build"
             chdir: "~/babylon"
-            environment:
+          environment:
               PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
               GOPATH: "{{ ansible_env.HOME }}/go"
               GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
