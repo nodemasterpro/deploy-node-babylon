@@ -48,7 +48,8 @@
             force: yes
 
         - name: build babylon project
-          ansible.builtin.shell: "make {{ ansible_env.HOME }}/babylon/build"
+          ansible.builtin.shell: "make build"
+          chdir: "~/babylon"
           environment:
             PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
             GOPATH: "{{ ansible_env.HOME }}/go"
