@@ -123,7 +123,7 @@
       args:
         executable: /bin/bash
     
-    
+  
     - name: Install Cosmovisor
       ansible.builtin.shell: |
         go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@latest
@@ -133,6 +133,11 @@
         mkdir -p ~/.babylond/cosmovisor/upgrades
         cp -f /usr/local/bin/babylond ~/.babylond/cosmovisor/genesis/bin/babylond
         cp -f /root/go/bin/cosmovisor /usr/local/bin/
+      environment:
+              PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+              GOPATH: "{{ ansible_env.HOME }}/go"
+              GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
+  
 
     - name: Setup Babylon Node Systemd Service
       template:
