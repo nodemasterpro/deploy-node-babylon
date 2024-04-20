@@ -48,12 +48,13 @@
             force: yes
 
         - name: build babylon project
-          ansible.builtin.shell: "make build"
-          chdir: "~/babylon"
-          environment:
-            PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
-            GOPATH: "{{ ansible_env.HOME }}/go"
-            GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
+          ansible.builtin.shell:
+            cmd: "make build"
+            chdir: "~/babylon"
+            environment:
+              PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+              GOPATH: "{{ ansible_env.HOME }}/go"
+              GOMODCACHE: "{{ ansible_env.HOME }}/go/pkg/mod"
 
         - name: Copy babylond to bin directory
           ansible.builtin.copy:
