@@ -134,7 +134,7 @@
 
     - name: Extract the snapshot
       ansible.builtin.shell:
-        cmd: "lz4 -d {{ ansible_env.HOME }}/.babylond/babylon_snapshot.tgitar.lz4 | tar x -C {{ ansible_env.HOME }}/.babylond"
+        cmd: "lz4 -d {{ ansible_env.HOME }}/.babylond/babylon_snapshot.tar.lz4 | tar x -C {{ ansible_env.HOME }}/.babylond"
         executable: /bin/bash
 
     - name: Install Cosmovisor
